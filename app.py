@@ -1,4 +1,3 @@
-# app.py
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -8,11 +7,11 @@ import jieba
 import re
 import os
 
-from SKDCN import SKDCN  # 确保这个文件定义了你的模型类
+from SKDCN import SKDCN
 
 app = FastAPI(title="垃圾邮件检测系统", version="1.0")
 
-# ===== 全局加载模型（启动时只加载一次）=====
+
 MODEL_PATH = "app.pth"
 
 if not os.path.exists(MODEL_PATH):
@@ -34,31 +33,26 @@ model = SKDCN(
 )
 model.load_state_dict(checkpoint["model_state_dict"])
 model.eval()
-print("✅ 模型加载成功！")
 
 
-# ===== 预处理函数 =====
 def preprocess(text: str, vocab, max_len=512):
-    # 清洗
-    text = re.sub(r"<[^>]+>", "", text)  # 去 HTML 标签
+
+    text = re.sub(r"<[^>]+>", "", text)
     text = re.sub(r"\s+", " ", text).strip()
     if not text:
         text = "<PAD>"
 
-    # 分词（中英文混合）
     if any("\u4e00" <= char <= "\u9fff" for char in text):
         tokens = jieba.lcut(text)
     else:
         tokens = text.split()
 
-    # 转 ID
     unk_id = vocab.get("<UNK>", 1)
     pad_id = vocab.get("<PAD>", 0)
     ids = [vocab.get(token, unk_id) for token in tokens]
     ids = ids[:max_len]
     mask = [1] * len(ids)
 
-    # 补 PAD
     while len(ids) < max_len:
         ids.append(pad_id)
         mask.append(0)
@@ -66,7 +60,6 @@ def preprocess(text: str, vocab, max_len=512):
     return torch.tensor([ids], dtype=torch.long), torch.tensor([mask], dtype=torch.long)
 
 
-# ===== 数据模型 =====
 class EmailRequest(BaseModel):
     text: str
 
@@ -77,7 +70,6 @@ class PredictionResponse(BaseModel):
     score: float
 
 
-# ===== API 接口 =====
 @app.post("/predict", response_model=PredictionResponse)
 async def predict_spam(request: EmailRequest):
     if not request.text.strip():
@@ -94,7 +86,6 @@ async def predict_spam(request: EmailRequest):
     )
 
 
-# ===== 前端页面（可选）=====
 @app.get("/", response_class=HTMLResponse)
 async def home():
     return """
@@ -143,6 +134,3 @@ async def home():
     </body>
     </html>
     """
-
-
-# 启动命令：uvicorn app:app --reload --port 8000

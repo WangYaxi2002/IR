@@ -105,7 +105,6 @@ class TextDataset(Dataset):
     def __getitem__(self, idx):
         tokens = self.tokenize_fn(self.contents[idx])
         ids = [self.vocab.get(t, self.vocab["<UNK>"]) for t in tokens[: self.max_len]]
-        # 填充到 max_len
         if len(ids) < self.max_len:
             ids += [self.vocab["<PAD>"]] * (self.max_len - len(ids))
         else:
@@ -113,16 +112,16 @@ class TextDataset(Dataset):
 
         mask = [1 if i != self.vocab["<PAD>"] else 0 for i in ids]
         if sum(mask) == 0:
-            # 强制至少一个有效 token
+
             ids[0] = self.vocab["<UNK>"]
             mask[0] = 1
-        # ⚠️ 关键：BCEWithLogitsLoss 需要 float 标签！
+
         label = float(self.labels[idx])
 
         return {
             "input_ids": torch.tensor(ids, dtype=torch.long),
             "attention_mask": torch.tensor(mask, dtype=torch.long),
-            "label": torch.tensor(label, dtype=torch.float),  # ✅ float!
+            "label": torch.tensor(label, dtype=torch.float),
         }
 
 
@@ -200,7 +199,7 @@ def train():
 
     # 构建词汇表
     vocab = build_vocab([train_file], language=language, min_freq=2, max_vocab=20000)
-    print(f"✅ Vocab size: {len(vocab)}")
+    print(f"Vocab size: {len(vocab)}")
 
     # 数据集
     train_dataset = TextDataset(train_file, vocab, max_len=256, language=language)
@@ -256,9 +255,9 @@ def train():
             best_f1 = f1
             save_path = f"skdcn_{language}_best.pth"
             torch.save(model.state_dict(), save_path)
-            print(f"🎉 New best F1: {f1:.4f}, model saved to {save_path}")
+            print(f"New best F1: {f1:.4f}, model saved to {save_path}")
 
-    print(f"\n✅ Training finished. Best F1: {best_f1:.4f}")
+    print(f"\nTraining finished. Best F1: {best_f1:.4f}")
 
 
 if __name__ == "__main__":
